@@ -83,14 +83,21 @@ function checkVer(ns, ver) {
   return currentVer == ver ? STOP("No new version to apply") : CONTINUE()
 }
 /** @param {import(".").NS } ns */
-function executePropagationScript(ns, hosts, scripts, excludeHosts, ver) {
+function nuke(ns, hosts) {
+  hosts.forEach(host => {
+    ns.nuke(host)
+  })
+  return CONTINUE()
+}
+/** @param {import(".").NS } ns */
+function executePropagationScript(ns, hosts, scriptsToCopyArg, excludeHostsArg, ver) {
   hosts.forEach(host => 
     ns.exec(
       propagationScriptName,
       host,
       1,
-      excludeHostsFlag, excludeHosts,
-      scriptsFlag, scripts, 
+      excludeHostsFlag, excludeHostsArg,
+      scriptsFlag, scriptsToCopyArg, 
       verFlag, 
       ver
     )
@@ -106,12 +113,14 @@ export async function main(ns) {
   const scripts = getArg(ns.args, scriptsFlag).split(",")
   const excludeHosts = getArg(ns.args, excludeHostsFlag, true)
   const eligibleHosts = connectedHosts.filter(host => !excludeHosts.includes(host))
-  const extendedExcludeHostsStr = (excludeHosts.toString() ? excludeHosts.toString() + "," : "") + eligibleHosts.toString() + "," + currentHost
+  const extendedExcludeHostsString = (excludeHosts.toString() ? excludeHosts.toString() + "," : "") + eligibleHosts.toString() + "," + currentHost
+  
   compose(
     () => help(ns),
     () => checkVer(ns, ver),
     () => sendToServers(ns, scripts, eligibleHosts),
+    () => executePropagationScript(ns, eligibleHosts, scripts.toString(), extendedExcludeHostsString, ver),
+    () => nuke(ns, eligibleHosts),
     () => saveNewVersion(ns, ver),
-    () => executePropagationScript(ns, eligibleHosts, scripts.toString(), extendedExcludeHostsStr, ver),
   )
 }
